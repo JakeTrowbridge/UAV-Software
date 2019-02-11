@@ -22,7 +22,7 @@ Adafruit_LIS3DH accel = Adafruit_LIS3DH();
 //~~~~~~~~~~~~~~Constant Variables~~~~~~~~~~~~~~~~~~
 File dataFile; // define file to write
 long t = 0;
-long dt = 0;
+int dt = 0;
 float pitch = 0;
 float roll = 0;
 float yaw = 0;
@@ -49,24 +49,30 @@ void setup() {
     Serial.println("Sd initialization failed!");
     while (1);
   }
+    for (int i = 2; i < 8; i++){  // set pins D2-D7 as input pins for receiver
+    pinMode(i, INPUT);
+  }
   Serial.println("Initialization done.");
   gyro.enableAutoRange(true);
   accel.enableAutoRange(true);
-}
+  }
 
 //~~~~~~~~~~~~~~~~~~~~~Main Loop~~~~~~~~~~~~~~~~~~~~
 void loop(){
   if (millis() >= (t + sampleTime)){
+    allDat[0] = millis();   // write current time to allDat[0]
+    dt = millis() - t;      // time since previous read
+    t = millis();           //  reset previous read time to current time
+    
     updateSensorData();
+    updateReceiverData();
     sdWrite();
   }
     
 }
+
 //~~~~~~~~~~~~~~~~~~~Functions~~~~~~~~~~~~~~~~~~~~~~
 void updateSensorData(){ // get sensor data over I2C
-    allDat[0] = t;
-    dt = millis()-t;    // time since previous read
-    t = millis();       // reset previous read time to current time
     sensors_event_t event;
     accel.getEvent(&event); // get acceleration data
     float AX = event.acceleration.x;
@@ -85,7 +91,7 @@ void updateSensorData(){ // get sensor data over I2C
     allDat[2] = roll;
 }
 
-float P_ComplementaryFilter(float ax,float ay,float az,float rx,float ry,float rz) {
+float P_ComplementaryFilter(float ax,float ay,float az,float rx,float ry,float rz) {    // pitch complimentary filter
   long squaresum=(long)ay*ay+(long)az*az;
   pitch+=((-ry/32.8f)*(dt/1000000.0f));
   float pitchAcc =atan(ax/sqrt(squaresum))*RAD_TO_DEG;
@@ -93,7 +99,7 @@ float P_ComplementaryFilter(float ax,float ay,float az,float rx,float ry,float r
   return(pitch);
 }
 
-float R_ComplementaryFilter(float ax,float ay,float az,float rx,float ry,float rz) {
+float R_ComplementaryFilter(float ax,float ay,float az,float rx,float ry,float rz) {    // roll complimentary filter
   long squaresum=(long)ax*ax+(long)az*az;
   roll+=((-rx/32.8f)*(dt/1000000.0f));
   float rollAcc =atan(ay/sqrt(squaresum))*RAD_TO_DEG;
@@ -101,10 +107,10 @@ float R_ComplementaryFilter(float ax,float ay,float az,float rx,float ry,float r
   return(roll);
 }
 
-void SDwrite(){ // Write data in allDat to SD card
+void SDwrite(){   // Write data in allDat to SD card
   dataFile = SD.open("datatest.csv", FILE_WRITE);
   if (dataFile) {
-    for(int i=0;i<15;i++){
+    for(int i = 0; i < 15; i++){
       dataFile.print(allDat[i]); dataFile.print(", ");
     }
     dataFile.println();
@@ -114,4 +120,10 @@ void SDwrite(){ // Write data in allDat to SD card
   }
   dataFile.close();
     
-//~~~~~~~~~~Receive Controller data over I2C~~~~~~~~~~~~~~~~
+void updateReceiverData(){   // get pulse lengths from receiver in ms
+  for (int x = 2; x < 8; x++){
+    allDat[(x + 7)] = pulseIn((x), HIGH); //(x + 7) to assign to correct allDat entry
+  }
+}
+
+//~~~~~~~~~~~~~~~~I2C Communicatcion~~~~~~~~~~~~~~~~
