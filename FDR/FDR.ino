@@ -28,7 +28,9 @@ File dataFile; // define file to write
 long t = 0;
 int dt = 0;
 float pitch = 0;
+float apitch = 0;
 float roll = 0;
+float aroll = 0;
 float yaw = 0;
 float allDat[15]; //format: [0Time, 1Pitch, 2Roll, 3Heading, 4PressAlt, 5GPSLong, 6GPSLat,
                   // 7GPSAlt, 8GPSSpeed, 9Ch1, 10Ch2, 11Ch3, 12Ch4, 13Ch5, 14Ch6]
@@ -49,10 +51,10 @@ void setup() {
     Serial.println("Couldn't start gyroscope");
     delay(100);
   }
-  if (!SD.begin(10)) { // start SD card
-    Serial.println("Sd initialization failed!");
-    while (1);
-  }
+//  if (!SD.begin(10)) { // start SD card
+//    Serial.println("Sd initialization failed!");
+//    while (1);
+//  }
   if(!bmp.begin())
   {
     /* There was a problem detecting the BMP085 ... check your connections */
@@ -75,14 +77,14 @@ void loop(){
     t = millis();           //  reset previous read time to current time
     
     updateSensorData();
-    updateReceiverData();
-    sdWrite();
+//    updateReceiverData();
+//    sdWrite();
 
 //  Serial.print(allDat[0]); //Serial write for testing
 //  Serial.print(", ");
-//  Serial.print(allDat[1]);
-//  Serial.print(", ");
-//  Serial.print(allDat[2]);
+  Serial.print(allDat[1]);
+  Serial.print(", ");
+  Serial.println(allDat[2]);
 //  Serial.print(", ");
 //  Serial.println(allDat[4]);
   }  
@@ -101,8 +103,8 @@ void updateSensorData(){ // get sensor data over I2C
     float RY = event.gyro.y;
     float RZ = event.gyro.z;
   
-    pitch = P_ComplementaryFilter(AX,AY,AZ,RX,RY,RZ); // calculate pitch
-    roll  = R_ComplementaryFilter(AX,AY,AZ,RX,RY,RZ); // calculate roll
+    P_ComplementaryFilter(AX,AY,AZ,RX,RY,RZ); // calculate pitch
+    R_ComplementaryFilter(AX,AY,AZ,RX,RY,RZ); // calculate roll
     
     allDat[1] = pitch;
     allDat[2] = roll;
@@ -111,21 +113,17 @@ void updateSensorData(){ // get sensor data over I2C
     allDat[4] = bmp.pressureToAltitude(1015, event.pressure);
 }
 
-
-float P_ComplementaryFilter(float ax,float ay,float az,float rx,float ry,float rz) {    // pitch complimentary filter
-  long squaresum=(long)ay*ay+(long)az*az;
-  pitch+=((-rx/32.8f)*(dt/1000000.0f));
-  float pitchAcc =atan(ax/sqrt(squaresum))*RAD_TO_DEG;
-  pitch =P_CompCoeff*pitch + (1.0f-P_CompCoeff)*pitchAcc;
-  return(pitch);
+void P_ComplementaryFilter(float ax,float ay,float az,float rx,float ry,float rz){
+  apitch = atan2(ax, sqrt((ay*ay)+(az*az)))*57.29578;
+  pitch += rx * 57.29578 * dt * 0.001;
+  pitch = 0.975 * pitch + 0.025 * apitch;
 }
 
-float R_ComplementaryFilter(float ax,float ay,float az,float rx,float ry,float rz) {    // roll complimentary filter
-  long squaresum=(long)ax*ax+(long)az*az;
-  roll+=((-ry/32.8f)*(dt/1000000.0f));
-  float rollAcc =atan(ay/sqrt(squaresum))*RAD_TO_DEG;
-  roll =R_CompCoeff*roll + (1.0f-R_CompCoeff)*rollAcc;
-  return(roll);
+
+void R_ComplementaryFilter(float ax,float ay,float az,float rx,float ry,float rz){
+  aroll = atan2(ay, sqrt((ax*ax)+(az*az)))*57.29578;
+  roll += ry * 57.29578 * dt * 0.001;
+  roll = 0.975 * roll + 0.025 * aroll;
 }
 
 void sdWrite(){   // Write data in allDat to SD card
