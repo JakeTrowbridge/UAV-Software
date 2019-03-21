@@ -37,8 +37,8 @@ float RZ;
 
 float pitch = 0;
 float roll = 0;
-float allDat[10]; //format: [0Time, 1Pitch, 2Roll, 3Heading, 4PressAlt, 5GPSLat, 6GPSLong,
-                  // 7GPSAlt, 8GPSSpeed, 9AutoPilot]
+float allDat[10]; //format: [0Time, 1Pitch, 2Roll, 3Heading, 4PressAlt, 5AutoPilot, 6GPSLat, 7GPSLong,
+                  // 8GPSAlt, 9GPSSpeed, ]
                   
 long time_GPS = 0;
 const byte SLAVE_ADDRESS = 42;
@@ -91,6 +91,8 @@ void updateSensorData(){ // get sensor data over I2C
     allDat[4] = bmp.pressureToAltitude(1015, event.pressure);
 
     GPS();
+
+    autopilot();
 }
 
 void sendData(){
@@ -99,13 +101,22 @@ void sendData(){
   Wire.endTransmission ();
 }
 
+void autopilot(){ 
+  if(pulseIn((3), HIGH) > 1500){
+    allDat[5] = 1;
+  }
+  else{
+    allDat[5] = 0;
+  }
+}
+
 void GPS(){
   while (ss.available() > 0){
     if (gps.encode(ss.read())){
-      allDat[5] = gps.location.lat();
-      allDat[6] = gps.location.lng();
-      allDat[7] = gps.altitude.meters();
-      allDat[8] = gps.speed.kmph();
+      allDat[6] = gps.location.lat();
+      allDat[7] = gps.location.lng();
+      allDat[8] = gps.altitude.meters();
+      allDat[9] = gps.speed.kmph();
     }
   }
 }
@@ -116,6 +127,7 @@ void writeHeader() {
   file.print(F(",Roll"));
   file.print(F(",Heading"));
   file.print(F(",Altitude"));
+  file.print(F(",Autopilot"));
   file.print(F(",GPS Lat"));
   file.print(F(",GPS Lon"));
   file.print(F(",GPS Alt"));
@@ -202,7 +214,9 @@ void loop(){
     t = millis();           //  reset previous read time to current time
 
     updateSensorData();
+
     sendData();
+    
 
   for (int i=0; i < 10; i++){
     file.print(allDat[i], 6);
