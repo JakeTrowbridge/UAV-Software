@@ -83,9 +83,10 @@ void updateSensorData(){ // get sensor data over I2C
     //~~Roll Complimentary Filter~~
     roll += RY * 57.29578 * dt * 0.001;
     roll = 0.975 * roll + 0.025 * (atan2(AY, sqrt((AX*AX)+(AZ*AZ)))*57.29578);  //57.295 = 180/pi
-    
-    allDat[1] = pitch;
-    allDat[2] = roll;
+
+    //~~~ Calibration factors~~
+    allDat[1] = pitch + 7;
+    allDat[2] = roll + 4;
 
     bmp.getEvent(&event);
     allDat[4] = bmp.pressureToAltitude(1015, event.pressure);
@@ -94,6 +95,7 @@ void updateSensorData(){ // get sensor data over I2C
 
     autopilot();
 }
+
 
 void sendData(){
   Wire.beginTransmission (SLAVE_ADDRESS);
