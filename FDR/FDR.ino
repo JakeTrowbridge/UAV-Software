@@ -55,6 +55,17 @@ int sampleTime = 200;       // minimum time between samples in ms
 //float R_CompCoeff = 0.975;  // Roll complimentary coefficient
 
 //~~~~~~~~~~~~~~~~~~~Functions~~~~~~~~~~~~~~~~~~~~~~
+void GPS(){
+  while (ss.available() > 0){
+    if (gps.encode(ss.read())){
+      allDat[6] = gps.location.lat();
+      allDat[7] = gps.location.lng();
+      allDat[8] = gps.altitude.meters();
+      allDat[9] = gps.speed.kmph();
+    }
+  }
+}
+
 void updateSensorData(){ // get sensor data over I2C
     sensors_event_t event;
     accel.getEvent(&event); // get acceleration data
@@ -103,25 +114,19 @@ void sendData(){
   Wire.endTransmission ();
 }
 
-void autopilot(){ 
-  if(pulseIn((3), HIGH) > 1500){
-    allDat[5] = 1;
+void autopilot(){
+  if(pulseIn((3), HIGH) > 1666){
+    allDat[5] = 2;
+  }
+  if (pulseIn((3), HIGH) < 1333){
+    allDat[5] = 0;
   }
   else{
-    allDat[5] = 0;
+    allDat[5] = 1;
   }
 }
 
-void GPS(){
-  while (ss.available() > 0){
-    if (gps.encode(ss.read())){
-      allDat[6] = gps.location.lat();
-      allDat[7] = gps.location.lng();
-      allDat[8] = gps.altitude.meters();
-      allDat[9] = gps.speed.kmph();
-    }
-  }
-}
+
 
 void writeHeader() {
   file.print(F("millis"));
