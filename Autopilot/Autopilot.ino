@@ -26,9 +26,9 @@ int dt = 0;
 float allDat[9]; //format: [0Time, 1Roll, 2Pitch, 3Heading, 4PressAlt, 5AutoPilot, 6GPSLong, 7GPSLat,8GPSSpeed]
 
 //~~~~~~~~~~~~~~~~Changable Variables~~~~~~~~~~~~
-float Roll_kp = 1;
-float Roll_ki = 0;
-float Roll_kd = 1;
+float Roll_kp = 0.9;
+float Roll_ki = 0.01;
+float Roll_kd = 0;
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Functions~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 void receiveEvent(int howMany){// called by interrupt service routine when incoming data arrives
@@ -91,7 +91,7 @@ void loop(){
         Ail_pos = -15;
       }
       Serial.println(Ail_pos);
-      Ail_servo.write(map(Ail_pos, -15, 15, 30, 120));
+      Ail_servo.write(map(Ail_pos, -15, 15, 60, 140));
     }
   }
 } // end of loop
