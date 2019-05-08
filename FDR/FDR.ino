@@ -37,7 +37,7 @@ float RZ;
 
 float pitch = 0;
 float roll = 0;
-float allDat[10]; //format: [0Time, 1Pitch, 2Roll, 3Heading, 4PressAlt, 5AutoPilot, 6GPSLat, 7GPSLong,
+float allDat[10]; //format: [0Time, 1Roll, 2Pitch, 3Heading, 4PressAlt, 5AutoPilot, 6GPSLat, 7GPSLong,
                   // 8GPSAlt, 9GPSSpeed, ]
                   
 long time_GPS = 0;
@@ -50,7 +50,7 @@ const uint8_t chipSelect = SS;
 #define error(msg) sd.errorHalt(F(msg))
 
 //~~~~~~~~~~~~~~Adjustable Variables~~~~~~~~~~~~~~~~~~
-int sampleTime = 200;       // minimum time between samples in ms
+#define sampleTime 200       // minimum time between samples in ms
 //float P_CompCoeff = 0.975;  // Pitch complimentary coefficient
 //float R_CompCoeff = 0.975;  // Roll complimentary coefficient
 
@@ -89,15 +89,15 @@ void updateSensorData(){ // get sensor data over I2C
     
     //~~Pitch Complimentary Filter~~
     pitch += RX * 57.29578 * dt * 0.001;
-    pitch = 0.975 * pitch + 0.025 * (atan2(AX, sqrt((AY*AY)+(AZ*AZ)))*57.29578);  //57.295 = 180/pi
+    pitch = 0.95 * pitch + 0.05 * (atan2(AX, sqrt((AY*AY)+(AZ*AZ)))*57.29578);  //57.295 = 180/pi
 
     //~~Roll Complimentary Filter~~
     roll += RY * 57.29578 * dt * 0.001;
-    roll = 0.975 * roll + 0.025 * (atan2(AY, sqrt((AX*AX)+(AZ*AZ)))*57.29578);  //57.295 = 180/pi
+    roll = 0.95 * roll + 0.05 * (atan2(AY, sqrt((AX*AX)+(AZ*AZ)))*57.29578);  //57.295 = 180/pi
 
     //~~~ Calibration factors~~
-    allDat[1] = pitch + 7;
-    allDat[2] = roll + 4;
+    allDat[1] = pitch + 6;
+    allDat[2] = roll - 4;
 
     bmp.getEvent(&event);
     allDat[4] = bmp.pressureToAltitude(1015, event.pressure);
@@ -107,7 +107,6 @@ void updateSensorData(){ // get sensor data over I2C
     autopilot();
 }
 
-
 void sendData(){
   Wire.beginTransmission (SLAVE_ADDRESS);
   I2C_writeAnything (allDat);
@@ -115,14 +114,11 @@ void sendData(){
 }
 
 void autopilot(){
-  if(pulseIn((3), HIGH) > 1666){
-    allDat[5] = 2;
-  }
-  if (pulseIn((3), HIGH) < 1333){
-    allDat[5] = 0;
+  if(pulseIn((3), HIGH) > 1500){
+    allDat[5] = 1;
   }
   else{
-    allDat[5] = 1;
+    allDat[5] = 0;
   }
 }
 
@@ -130,8 +126,8 @@ void autopilot(){
 
 void writeHeader() {
   file.print(F("millis"));
-  file.print(F(",Pitch"));
   file.print(F(",Roll"));
+  file.print(F(",Pitch"));
   file.print(F(",Heading"));
   file.print(F(",Altitude"));
   file.print(F(",Autopilot"));
@@ -149,26 +145,26 @@ void setup() {
   ss.begin(GPSBaud);
   
   if (! accel.begin()) {    // start accelerometer
-    Serial.println(F("Couldn't start accelerometer"));
+    Serial.println(F("Accelerometer Error"));
     delay(100);
   }
 
   if(!mag.begin())
   {
     /* There was a problem detecting the LSM303 ... check your connections */
-    Serial.println(F("Couldn't start magnetometer"));
+    Serial.println(F("Magnetometer Error"));
     while(1);
   }
 
   if (! gyro.begin()) { // start gyroscope
-    Serial.println(F("Couldn't start gyroscope"));
+    Serial.println(F("Gyroscope Error"));
     delay(100);
   }
 
   if(!bmp.begin())
   {
     /* There was a problem detecting the BMP085 ... check your connections */
-    Serial.println(F("Ooops, no BMP085 detected ... Check your wiring or I2C ADDR!"));
+    Serial.println(F("Pressure Error"));
     while(1);
   }
 
@@ -221,15 +217,16 @@ void loop(){
     t = millis();           //  reset previous read time to current time
 
     updateSensorData();
-
     sendData();
     
-
   for (int i=0; i < 10; i++){
     file.print(allDat[i], 6);
     file.write(", ");
+    Serial.print(allDat[i]);
+    Serial.print(F(", "));
     }
     file.println();
+    Serial.println();
   }
   file.sync();
 }
